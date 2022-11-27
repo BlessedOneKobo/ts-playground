@@ -3,6 +3,7 @@ import type { Nullable } from "./types";
 export interface Node<T> {
   value: T;
   next: Nullable<Node<T>>;
+  previous: Nullable<Node<T>>;
 }
 
 export default class LinkedList<T> {
@@ -17,69 +18,79 @@ export default class LinkedList<T> {
   }
 
   prepend(value: T) {
-    const node: Node<T> = { value, next: null };
-    this.#length += 1;
+    const node: Node<T> = { value, next: this.#head, previous: null };
+
     if (this.#head === null) {
       this.#head = node;
-      this.#tail = node;
-      return;
+    } else {
+      this.#head.next = node;
     }
 
-    const currHead = this.#head;
-    node.next = currHead;
-    this.#head = node;
+    if (this.#tail === null) {
+      this.#tail = node;
+    }
+
+    this.#length += 1;
   }
 
   append(value: T) {
-    const node: Node<T> = { value, next: null };
-    this.#length += 1;
-    if (this.#tail === null) {
+    const node: Node<T> = { value, next: null, previous: this.#tail };
+    if (this.#head === null) {
       this.#head = node;
-      this.#tail = node;
-      return;
     }
-
-    const currTail = this.#tail;
-    currTail.next = node;
+    if (this.#tail) {
+      this.#tail.next = node;
+    }
     this.#tail = node;
+    this.#length += 1;
   }
 
-  removeAt(indexToRemove: number): T {
-    if (
-      indexToRemove < 0 ||
-      indexToRemove >= this.#length ||
-      this.#head === null
-    ) {
-      throw new Error(`Index ${indexToRemove} is out-of-bounds`);
+  moveValueToTail(value: T): boolean {
+    if (this.#tail?.value === value) {
+      return false;
     }
 
     let iter = this.#head;
-    let prevIter = iter;
-    for (let idx = 0; idx < indexToRemove && iter.next !== null; idx += 1) {
-      prevIter = iter;
+    while (iter !== null && iter.value !== value) {
       iter = iter.next;
     }
 
-    prevIter.next = iter.next;
-    return iter.value;
+    if (iter === null) {
+      return false;
+    }
+
+    if (iter.previous) {
+      iter.previous.next = iter.next;
+    } else {
+      this.#head = iter.next;
+    }
+
+    if (iter.next) {
+      iter.next.previous = iter.previous;
+    }
+
+    iter.previous = this.#tail;
+
+    if (this.#tail) {
+      this.#tail.next = iter;
+    }
+    iter.next = null;
+    this.#tail = iter;
+    return true;
   }
 
-  unshift(): T {
+  unshift(): T | undefined {
     if (this.#head === null) {
-      throw new Error("Cannot unshift from empty linked list");
+      return undefined;
     }
 
-    const currHead = this.#head;
-    this.#head = currHead.next;
-    return currHead.value;
-  }
-
-  pop(): T {
-    if (this.#tail === null) {
-      throw new Error("Cannot pop from empty linked list");
+    const val = this.#head.value;
+    if (this.#head.next) {
+      this.#head.next.previous = null;
     }
-
-    return this.removeAt(this.#length - 1);
+    this.#head = this.#head.next;
+    this.#length -= 1;
+    return val;
   }
 
   toString(): string {

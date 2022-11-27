@@ -1,74 +1,50 @@
-interface CacheValue<T> {
-  value: T;
-  age: number;
-}
-
-type CacheEntry<T> = Map<string, CacheValue<T>>;
-
-const AGE_UPPER_SENTINEL = 100000 + 1;
+import LinkedList from "./linkedList";
 
 class LRUCache<T> {
-  #cache: CacheEntry<T>;
   #capacity: number;
-  #size: number;
-  #maxAge: number;
+  #cache: Map<string, T>;
+  #ageList: LinkedList<string>;
 
   constructor(capacity: number) {
     if (capacity < 1) {
       throw new Error(`Invalid capacity: ${capacity}`);
     }
 
-    this.#cache = new Map<string, CacheValue<T>>();
+    this.#cache = new Map<string, T>();
     this.#capacity = capacity;
-    this.#size = 0;
-    this.#maxAge = 0;
+    this.#ageList = new LinkedList();
   }
 
   get(key: string | number): T | undefined {
-    if (!key) {
-      throw new Error(`Invalid key: '${key}'`);
-    }
+    const strKey = String(key);
 
-    const entry = this.#cache.get(String(key));
-    if (entry === undefined) {
+    const value = this.#cache.get(strKey);
+    if (value === undefined) {
       return undefined;
     }
 
-    for (const [k, v] of this.#cache) {
-      if (k !== String(key)) {
-        v.age -= 1;
-      }
-    }
-
-    entry.age += 1;
-    if (entry.age > this.#maxAge) {
-      this.#maxAge = entry.age;
-    }
-    return entry.value;
+    this.#ageList.moveValueToTail(strKey);
+    return value;
   }
 
-  put(key: string | number, value: T): void {
-    if (this.#size < this.#capacity) {
-      this.#cache.set(String(key), { value, age: this.#maxAge });
-      this.#size += 1;
-      this.#maxAge += 1;
+  put(key: string | number, value: T) {
+    const strKey = String(key);
+    if (this.get(strKey) !== undefined) {
+      this.#cache.set(strKey, value);
       return;
     }
 
-    let minKey = "";
-    let minAge = AGE_UPPER_SENTINEL;
-
-    for (const [k, v] of this.#cache) {
-      if (v.age < minAge) {
-        minAge = v.age;
-        minKey = k;
-      }
+    if (this.#ageList.length < this.#capacity) {
+      this.#cache.set(strKey, value);
+      this.#ageList.append(strKey);
+      return;
     }
 
-    if (minKey) {
-      this.#cache.delete(minKey);
-      this.#cache.set(String(key), { value, age: this.#maxAge });
-      this.#maxAge += 1;
+    const lruValue = this.#ageList.unshift();
+    if (lruValue) {
+      this.#cache.delete(lruValue);
+      this.#cache.set(strKey, value);
+      this.#ageList.append(strKey);
     }
   }
 
@@ -76,10 +52,10 @@ class LRUCache<T> {
     let str = "{\n";
 
     for (const [k, v] of this.#cache) {
-      str += `  [age=${v.age}]['${k}']: ${v.value}\n`;
+      str += `  ['${k}']: ${v}\n`;
     }
 
-    return str + "}";
+    return str + "}\n";
   }
 }
 
